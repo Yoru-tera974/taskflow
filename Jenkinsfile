@@ -1,9 +1,3 @@
-// ============================================================
-// Jenkinsfile — Pipeline CI TaskFlow
-// TP Fil Rouge CI/CD — Noel Evan
-// Cours : Infrastructure as Code — Tristan BASTIEN
-// ============================================================
-
 pipeline {
     agent any
 
@@ -15,11 +9,11 @@ pipeline {
         IMAGE_NAME = 'taskflow'
         REGISTRY   = 'localhost:5000'
         VERSION    = "v${env.BUILD_NUMBER}"
+        HOST_IP    = "172.16.52.150"
     }
 
     stages {
 
-        // STAGE 1 — Installation des dépendances Node.js
         stage('Install') {
             steps {
                 sh '''
@@ -30,14 +24,12 @@ pipeline {
             }
         }
 
-        // STAGE 2 — Tests unitaires
         stage('Test') {
             steps {
                 sh 'npm test -- --coverage'
             }
         }
 
-        // STAGE 3 — Scan de sécurité
         stage('Security Scan') {
             steps {
                 sh 'npm audit --audit-level=high'
@@ -45,7 +37,6 @@ pipeline {
             }
         }
 
-        // STAGE 4 — Construction de l'image Docker
         stage('Docker Build') {
             steps {
                 sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:${VERSION} ."
@@ -54,7 +45,6 @@ pipeline {
             }
         }
 
-        // STAGE 5 — Push dans le registry local
         stage('Docker Push') {
             steps {
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
@@ -62,7 +52,6 @@ pipeline {
             }
         }
 
-        // STAGE 6 — Lancement du conteneur pour le smoke test
         stage('Run Container') {
             steps {
                 sh '''
@@ -72,13 +61,12 @@ pipeline {
             }
         }
 
-        // STAGE 7 — Smoke test
         stage('Smoke Test') {
             steps {
                 script {
                     sleep(5)
                     def response = sh(
-                        script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/health',
+                        script: "curl -s -o /dev/null -w \"%{http_code}\" http://${HOST_IP}:8081/health",
                         returnStdout: true
                     ).trim()
 
