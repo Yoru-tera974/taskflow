@@ -63,7 +63,7 @@ pipeline {
         }
 
         // STAGE 5 — Push dans le registry local
-   stage('Docker Push') {
+  stage('Docker Push') {
     steps {
         script {
             // Tag versionné vers le registry
