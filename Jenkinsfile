@@ -64,14 +64,15 @@ pipeline {
 
         // STAGE 5 — Push dans le registry local
         stage('Docker Push') {
+    stage('Docker Push') {
     steps {
         script {
             def version = "v${env.BUILD_NUMBER}"
 
-            // Tag versionné
+            // On retague l'image locale construite par le build
             sh "docker tag taskflow:${version} localhost:5000/taskflow:${version}"
 
-            // Tag latest
+            // On crée aussi le tag latest
             sh "docker tag taskflow:${version} localhost:5000/taskflow:latest"
 
             // Push versionné
