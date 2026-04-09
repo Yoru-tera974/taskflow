@@ -64,13 +64,26 @@ pipeline {
 
         // STAGE 5 — Push dans le registry local
         stage('Docker Push') {
-            steps {
-                sh "docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
-                sh "docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
-                sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
-                echo "Image poussée : ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
-            }
+    steps {
+        script {
+            def version = "v${env.BUILD_NUMBER}"
+
+            // Tag versionné
+            sh "docker tag taskflow:${version} localhost:5000/taskflow:${version}"
+
+            // Tag latest
+            sh "docker tag taskflow:${version} localhost:5000/taskflow:latest"
+
+            // Push versionné
+            sh "docker push localhost:5000/taskflow:${version}"
+
+            // Push latest
+            sh "docker push localhost:5000/taskflow:latest"
         }
+    }
+}
+
+
 
         // STAGE 6 — Smoke test post-déploiement
         stage('Smoke Test') {
