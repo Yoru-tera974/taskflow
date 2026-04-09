@@ -35,11 +35,6 @@ pipeline {
             steps {
                 sh 'npm test -- --coverage'
             }
-            post {
-                failure {
-                    echo 'ÉCHEC DES TESTS — pipeline arrêté'
-                }
-            }
         }
 
         // STAGE 3 — Scan de sécurité
@@ -67,13 +62,23 @@ pipeline {
             }
         }
 
-        // STAGE 6 — Smoke test
+        // STAGE 6 — Lancement du conteneur pour le smoke test
+        stage('Run Container') {
+            steps {
+                sh '''
+                    docker rm -f taskflow || true
+                    docker run -d --name taskflow -p 8081:8080 ${REGISTRY}/taskflow:${VERSION}
+                '''
+            }
+        }
+
+        // STAGE 7 — Smoke test
         stage('Smoke Test') {
             steps {
                 script {
                     sleep(5)
                     def response = sh(
-                        script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health',
+                        script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/health',
                         returnStdout: true
                     ).trim()
 
