@@ -1,9 +1,3 @@
-// ============================================================
-// Jenkinsfile — Pipeline CI TaskFlow
-// TP Fil Rouge CI/CD — Noel Evan
-// Cours : Infrastructure as Code — Tristan BASTIEN
-// ============================================================
-
 pipeline {
     agent any
 
@@ -15,16 +9,7 @@ pipeline {
 
     stages {
 
-        // STAGE 1 — Récupération du code source
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    url: 'https://github.com/votre-user/taskflow.git'
-                echo "Code récupéré — branche main"
-            }
-        }
-
-        // STAGE 2 — Installation des dépendances Node.js
+        // STAGE 1 — Installation des dépendances Node.js
         stage('Install') {
             steps {
                 sh '''
@@ -35,8 +20,7 @@ pipeline {
             }
         }
 
-        // STAGE 3 — Tests unitaires
-        // Si les tests échouent : pipeline STOP + mail d'alerte
+        // STAGE 2 — Tests unitaires
         stage('Test') {
             steps {
                 sh 'npm test -- --coverage'
@@ -51,7 +35,7 @@ pipeline {
             }
         }
 
-        // STAGE 4 — Scan de sécurité des dépendances
+        // STAGE 3 — Scan de sécurité
         stage('Security Scan') {
             steps {
                 sh 'npm audit --audit-level=high'
@@ -59,7 +43,7 @@ pipeline {
             }
         }
 
-        // STAGE 5 — Construction de l'image Docker versionnée
+        // STAGE 4 — Build Docker
         stage('Docker Build') {
             steps {
                 sh "docker build -t ${IMAGE_NAME}:${VERSION} ."
@@ -68,7 +52,7 @@ pipeline {
             }
         }
 
-        // STAGE 6 — Push dans le registry local
+        // STAGE 5 — Push Docker
         stage('Docker Push') {
             steps {
                 sh "docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
@@ -78,7 +62,7 @@ pipeline {
             }
         }
 
-        // STAGE 7 — Smoke test post-déploiement (BONUS)
+        // STAGE 6 — Smoke test
         stage('Smoke Test') {
             steps {
                 script {
