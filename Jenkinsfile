@@ -8,7 +8,7 @@ pipeline {
     agent any
 
     tools {
-        nodejs "node18"   // Active Node.js + npm dans Jenkins
+        nodejs "node18"
     }
 
     environment {
@@ -37,53 +37,37 @@ pipeline {
             }
             post {
                 failure {
-                    echo 'ÉCHEC DES TESTS — pipeline arrêté, aucune image produite'
-                    mail to: 'evan@taskflow.fr',
-                         subject: "Build #${BUILD_NUMBER} — TESTS KO",
-                         body: "Des tests ont échoué sur le build #${BUILD_NUMBER}. Consulter Jenkins : ${env.BUILD_URL}"
+                    echo 'ÉCHEC DES TESTS — pipeline arrêté'
                 }
             }
         }
 
-        // STAGE 3 — Scan de sécurité des dépendances
+        // STAGE 3 — Scan de sécurité
         stage('Security Scan') {
             steps {
                 sh 'npm audit --audit-level=high'
-                echo "Scan sécurité OK — aucune CVE critique"
+                echo "Scan sécurité OK"
             }
         }
 
-        // STAGE 4 — Construction de l'image Docker versionnée
+        // STAGE 4 — Construction de l'image Docker
         stage('Docker Build') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${VERSION} ."
-                sh "docker tag ${IMAGE_NAME}:${VERSION} ${IMAGE_NAME}:latest"
-                echo "Image construite : ${IMAGE_NAME}:${VERSION}"
+                sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:${VERSION} ."
+                sh "docker tag ${REGISTRY}/${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:latest"
+                echo "Image construite : ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
             }
         }
 
         // STAGE 5 — Push dans le registry local
-  stage('Docker Push') {
-    steps {
-        script {
-            // Tag versionné vers le registry
-            sh "docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
-
-            // Tag latest vers le registry
-            sh "docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:latest"
-
-            // Push versionné
-            sh "docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
-
-            // Push latest
-            sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
+        stage('Docker Push') {
+            steps {
+                sh "docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
+                sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
+            }
         }
-    }
-}
 
-
-
-        // STAGE 6 — Smoke test post-déploiement
+        // STAGE 6 — Smoke test
         stage('Smoke Test') {
             steps {
                 script {
@@ -92,9 +76,11 @@ pipeline {
                         script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health',
                         returnStdout: true
                     ).trim()
+
                     if (response != '200') {
                         error "Smoke test ÉCHEC : HTTP ${response}"
                     }
+
                     echo "Smoke test OK : HTTP 200"
                 }
             }
@@ -105,13 +91,12 @@ pipeline {
         success {
             echo "======================================"
             echo "Pipeline CI terminé avec SUCCÈS !"
-            echo "Artefact : ${IMAGE_NAME}:${VERSION}"
+            echo "Artefact : ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
             echo "======================================"
         }
         failure {
             echo "======================================"
-            echo "Pipeline en ÉCHEC — aucun artefact produit"
-            echo "Consulter les logs pour diagnostiquer"
+            echo "Pipeline en ÉCHEC"
             echo "======================================"
         }
     }
