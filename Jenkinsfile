@@ -63,22 +63,20 @@ pipeline {
         }
 
         // STAGE 5 — Push dans le registry local
-    stage('Docker Push') {
+   stage('Docker Push') {
     steps {
         script {
-            def version = "v15"
+            // Tag versionné vers le registry
+            sh "docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
 
-            // Tag versionné
-            sh "docker tag taskflow:${version} localhost:5000/taskflow:${version}"
-
-            // Tag latest
-            sh "docker tag taskflow:${version} localhost:5000/taskflow:latest"
+            // Tag latest vers le registry
+            sh "docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:latest"
 
             // Push versionné
-            sh "docker push localhost:5000/taskflow:${version}"
+            sh "docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
 
             // Push latest
-            sh "docker push localhost:5000/taskflow:latest"
+            sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
         }
     }
 }
