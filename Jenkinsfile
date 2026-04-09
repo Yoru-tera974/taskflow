@@ -1,5 +1,15 @@
+// ============================================================
+// Jenkinsfile — Pipeline CI TaskFlow
+// TP Fil Rouge CI/CD — Noel Evan
+// Cours : Infrastructure as Code — Tristan BASTIEN
+// ============================================================
+
 pipeline {
     agent any
+
+    tools {
+        nodejs "node18"   // Active Node.js + npm dans Jenkins
+    }
 
     environment {
         IMAGE_NAME = 'taskflow'
@@ -35,7 +45,7 @@ pipeline {
             }
         }
 
-        // STAGE 3 — Scan de sécurité
+        // STAGE 3 — Scan de sécurité des dépendances
         stage('Security Scan') {
             steps {
                 sh 'npm audit --audit-level=high'
@@ -43,7 +53,7 @@ pipeline {
             }
         }
 
-        // STAGE 4 — Build Docker
+        // STAGE 4 — Construction de l'image Docker versionnée
         stage('Docker Build') {
             steps {
                 sh "docker build -t ${IMAGE_NAME}:${VERSION} ."
@@ -52,7 +62,7 @@ pipeline {
             }
         }
 
-        // STAGE 5 — Push Docker
+        // STAGE 5 — Push dans le registry local
         stage('Docker Push') {
             steps {
                 sh "docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
@@ -62,7 +72,7 @@ pipeline {
             }
         }
 
-        // STAGE 6 — Smoke test
+        // STAGE 6 — Smoke test post-déploiement
         stage('Smoke Test') {
             steps {
                 script {
