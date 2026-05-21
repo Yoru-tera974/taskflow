@@ -1,0 +1,63 @@
+version: '3.8'
+
+# =============================================
+# Docker Compose multi-environnement TaskFlow
+# Usage :
+#   DEV  : docker-compose --env-file .env.dev up
+#   TEST : docker-compose --env-file .env.test up
+#   PROD : docker-compose --env-file .env.prod up
+# =============================================
+
+services:
+  app:
+    image: localhost:5000/taskflow:${VERSION:-latest}
+    container_name: taskflow-${NODE_ENV:-dev}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - taskflow-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  db:
+    image: postgres:15-alpine
+    container_name: taskflow-db-${NODE_ENV:-dev}
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - taskflow-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  taskflow-net:
+    driver: bridge
+
+volumes:
+  db-data:
