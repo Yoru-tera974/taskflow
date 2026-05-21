@@ -96,9 +96,7 @@ pipeline {
         // Rolling Update : zero downtime
 
         stage('Deploy') {
-            when {
-                branch 'main'
-            }
+           
             steps {
                 script {
                     echo "Deploiement ${REGISTRY}/${IMAGE_NAME}:${VERSION} en cours..."
