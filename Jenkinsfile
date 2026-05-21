@@ -9,7 +9,6 @@ pipeline {
         IMAGE_NAME = 'taskflow'
         REGISTRY   = 'localhost:5000'
         VERSION    = "v${env.BUILD_NUMBER}"
-        HOST_IP    = "172.16.52.150"
     }
 
     stages {
@@ -66,7 +65,7 @@ pipeline {
                 script {
                     sleep(5)
                     def response = sh(
-                        script: "curl -s -o /dev/null -w \"%{http_code}\" http://${HOST_IP}:8081/health",
+                        script:'curl -s -o /dev/null -w "%{http_code}" http://host.docker.internal:8081/health',
                         returnStdout: true
                     ).trim()
 
