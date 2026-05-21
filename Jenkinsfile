@@ -1,14 +1,25 @@
+// ============================================================
+// Jenkinsfile — Pipeline CI/CD TaskFlow
+// TP Fil Rouge CI/CD
+// ============================================================
+
 pipeline {
     agent any
+
     tools {
         nodejs "node18"
     }
+
     environment {
         IMAGE_NAME = 'taskflow'
         REGISTRY   = 'localhost:5000'
         VERSION    = "v${env.BUILD_NUMBER}"
     }
+
     stages {
+
+        // ── PARTIE CI ─────────────────────────────────────
+
         stage('Install') {
             steps {
                 sh '''
@@ -18,17 +29,20 @@ pipeline {
                 echo "Dependances installees avec succes"
             }
         }
+
         stage('Test') {
             steps {
                 sh 'npm test -- --coverage'
             }
         }
+
         stage('Security Scan') {
             steps {
                 sh 'npm audit --audit-level=high'
                 echo "Scan securite OK"
             }
         }
+
         stage('Docker Build') {
             steps {
                 sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:${VERSION} ."
@@ -36,12 +50,14 @@ pipeline {
                 echo "Image construite : ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
             }
         }
+
         stage('Docker Push') {
             steps {
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
             }
         }
+
         stage('Run Container') {
             steps {
                 sh '''
@@ -50,19 +66,23 @@ pipeline {
                 '''
             }
         }
+
         stage('Smoke Test') {
             steps {
                 script {
                     sleep(5)
+                    // Recupere l'IP interne du conteneur via docker inspect
                     def taskflowIP = sh(
                         script: "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' taskflow",
                         returnStdout: true
                     ).trim()
                     echo "IP taskflow : ${taskflowIP}"
+
                     def response = sh(
                         script: "curl -s -o /dev/null -w '%{http_code}' http://${taskflowIP}:8080/health",
                         returnStdout: true
                     ).trim()
+
                     if (response != '200') {
                         error "Smoke test ECHEC : HTTP ${response}"
                     }
@@ -71,58 +91,58 @@ pipeline {
             }
         }
 
-        // =============================================
-        // PARTIE 4 — DEPLOIEMENT CONTINU (CD)
-        // Declenche automatiquement sur merge dans main
-        // Deploiement sans coupure avec Rolling Update
-        // =============================================
+        // ── PARTIE CD ─────────────────────────────────────
+        // Deploiement automatique a chaque merge sur main
+        // Rolling Update : zero downtime
+
         stage('Deploy') {
             when {
                 branch 'main'
             }
             steps {
                 script {
-                    echo "Deploiement de ${REGISTRY}/${IMAGE_NAME}:${VERSION} en cours..."
+                    echo "Deploiement ${REGISTRY}/${IMAGE_NAME}:${VERSION} en cours..."
 
-                    // --- ROLLING UPDATE sans coupure ---
-                    // 1. Demarrer le nouveau conteneur sur un port temporaire
+                    // 1. Demarrer le nouveau conteneur
                     sh """
+                        docker rm -f taskflow-new || true
                         docker run -d \
                             --name taskflow-new \
-                            -p 8082:8080 \
                             --restart unless-stopped \
                             ${REGISTRY}/${IMAGE_NAME}:${VERSION}
                     """
 
                     // 2. Attendre que le nouveau conteneur soit pret
                     sleep(10)
+
                     def newIP = sh(
                         script: "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' taskflow-new",
                         returnStdout: true
                     ).trim()
-                    def healthCheck = sh(
+
+                    def health = sh(
                         script: "curl -s -o /dev/null -w '%{http_code}' http://${newIP}:8080/health",
                         returnStdout: true
                     ).trim()
 
-                    if (healthCheck != '200') {
-                        // Rollback immediat si le nouveau conteneur ne repond pas
+                    if (health != '200') {
+                        // Rollback immediat
                         sh 'docker rm -f taskflow-new || true'
-                        error "Rolling update ECHEC : nouveau conteneur KO (HTTP ${healthCheck}). Rollback effectue."
+                        error "Rolling update ECHEC (HTTP ${health}) — rollback effectue"
                     }
 
                     // 3. Basculer : supprimer l'ancien, renommer le nouveau
                     sh """
                         docker rm -f taskflow || true
                         docker rename taskflow-new taskflow
-                        docker update --publish-add 8081:8080 taskflow || true
                     """
 
-                    echo "Rolling update OK : ${REGISTRY}/${IMAGE_NAME}:${VERSION} en production"
+                    echo "Rolling update OK : ${REGISTRY}/${IMAGE_NAME}:${VERSION} deploye"
                 }
             }
         }
     }
+
     post {
         success {
             echo "======================================"
@@ -133,11 +153,10 @@ pipeline {
         failure {
             echo "======================================"
             echo "Pipeline en ECHEC"
-            echo "Rollback disponible : relancer avec version precedente"
             echo "======================================"
         }
         always {
-            // Nettoyage : supprimer images anciennes (garder les 3 dernieres)
+            // Nettoyage : garder uniquement les 3 dernieres images
             sh """
                 docker images ${REGISTRY}/${IMAGE_NAME} --format '{{.Tag}}' | \
                 grep -v latest | sort -t v -k2 -rn | tail -n +4 | \
