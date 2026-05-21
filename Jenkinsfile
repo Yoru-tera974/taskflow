@@ -60,24 +60,26 @@ pipeline {
             }
         }
 
-        stage('Smoke Test') {
-            steps {
-                script {
-                    sleep(5)
-                    def response = sh(
-                        script:'curl -s -o /dev/null -w "%{http_code}" http://host.docker.internal:8081/health',
-                        returnStdout: true
-                    ).trim()
-
-                    if (response != '200') {
-                        error "Smoke test ÉCHEC : HTTP ${response}"
-                    }
-
-                    echo "Smoke test OK : HTTP 200"
-                }
+       stage('Smoke Test') {
+    steps {
+        script {
+            sleep(5)
+            def taskflowIP = sh(
+                script: "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' taskflow",
+                returnStdout: true
+            ).trim()
+            echo "IP taskflow : ${taskflowIP}"
+            def response = sh(
+                script: "curl -s -o /dev/null -w '%{http_code}' http://${taskflowIP}:8080/health",
+                returnStdout: true
+            ).trim()
+            if (response != '200') {
+                error "Smoke test ÉCHEC : HTTP ${response}"
             }
+            echo "Smoke test OK : HTTP 200"
         }
     }
+}
 
     post {
         success {
